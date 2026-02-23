@@ -33,6 +33,11 @@ function openReview(index: number) {
 <template>
   <div v-if="store.result" class="results-page">
 
+    <!-- Top nav -->
+    <div class="results-topbar">
+      <button class="btn-home" @click="retake">← Home</button>
+    </div>
+
     <!-- Result hero -->
     <div :class="['result-hero', store.result.passed ? 'pass' : 'fail']">
       <div class="result-badge">{{ store.result.passed ? 'PASS' : 'FAIL' }}</div>
@@ -112,6 +117,25 @@ function openReview(index: number) {
 
 <style scoped>
 .results-page { min-height: 100vh; }
+
+.results-topbar {
+  display: flex;
+  align-items: center;
+  padding: 0.65rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.btn-home {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-home:hover { border-color: var(--border-2); color: var(--text); }
 
 .result-hero {
   padding: 3.5rem 2rem;
@@ -200,4 +224,15 @@ h2 { font-size: 1rem; font-weight: 600; color: var(--text-muted); margin-bottom:
   transition: opacity 0.2s;
 }
 .btn-retake:hover { opacity: 0.85; }
+
+@media (max-width: 600px) {
+  .result-hero { padding: 2.5rem 1.25rem; }
+  .content { padding: 2rem 1.25rem; }
+  .ch-grid { grid-template-columns: 1fr 1fr; }
+  .rr-text { font-size: 0.78rem; }
+}
+
+@media (max-width: 420px) {
+  .ch-grid { grid-template-columns: 1fr; }
+}
 </style>

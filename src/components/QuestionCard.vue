@@ -170,4 +170,12 @@ const optionKeys = ['A', 'B', 'C', 'D'] as const
 .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .nav-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .nav-btn.primary:hover:not(:disabled) { opacity: 0.85; }
+
+@media (max-width: 600px) {
+  .card { padding: 1.25rem; border-radius: 10px; }
+  .q-text { font-size: 0.92rem; }
+  .option { padding: 0.75rem 0.85rem; }
+  .opt-text { font-size: 0.85rem; }
+  .nav-btn { padding: 0.5rem 0.9rem; font-size: 0.78rem; }
+}
 </style>
