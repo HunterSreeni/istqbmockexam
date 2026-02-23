@@ -14,9 +14,10 @@ const emit = defineEmits<{ go: [i: number] }>()
     <p class="nav-title">Questions</p>
 
     <div class="legend">
-      <span class="leg answered">●</span> Answered
-      <span class="leg flagged">●</span> Flagged
-      <span class="leg unanswered">○</span> Unanswered
+      <span class="swatch answered" />Answered
+      <span class="swatch unanswered" />Unanswered
+      <span class="swatch flagged-answered" />Flagged &amp; done
+      <span class="swatch flagged" />Flagged
     </div>
 
     <div class="grid">
@@ -50,16 +51,25 @@ const emit = defineEmits<{ go: [i: number] }>()
 .legend {
   font-size: 0.68rem;
   color: var(--text-dim);
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
   align-items: center;
-  gap: 0.3rem;
-  flex-wrap: wrap;
+  gap: 0.3rem 0.4rem;
   margin-bottom: 1rem;
 }
-.leg { margin-right: 0.15rem; }
-.leg.answered { color: var(--accent); }
-.leg.flagged  { color: var(--yellow); }
-.leg.unanswered { color: var(--border-2); }
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+.swatch.answered         { background: var(--accent-dim);  border-color: rgba(79,142,247,0.4); }
+.swatch.unanswered       { background: var(--bg);           border-color: var(--border-2); }
+.swatch.flagged          { background: var(--yellow-dim);   border-color: rgba(251,191,36,0.4); }
+.swatch.flagged-answered { background: var(--accent-dim);   border-color: var(--yellow); }
 
 .grid {
   display: grid;
@@ -78,7 +88,8 @@ const emit = defineEmits<{ go: [i: number] }>()
   transition: all 0.15s;
 }
 .q-btn:hover { border-color: var(--border-2); color: var(--text); }
-.q-btn.answered { background: var(--accent-dim); border-color: rgba(79,142,247,0.3); color: var(--accent); }
-.q-btn.flagged  { background: var(--yellow-dim); border-color: rgba(251,191,36,0.3);  color: var(--yellow); }
-.q-btn.current  { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,142,247,0.3); }
+.q-btn.answered         { background: var(--accent-dim); border-color: rgba(79,142,247,0.3); color: var(--accent); }
+.q-btn.flagged          { background: var(--yellow-dim); border-color: rgba(251,191,36,0.3); color: var(--yellow); }
+.q-btn.flagged.answered { background: var(--accent-dim); border-color: var(--yellow);        color: var(--accent); }
+.q-btn.current          { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,142,247,0.3); }
 </style>

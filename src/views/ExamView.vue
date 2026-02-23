@@ -54,7 +54,9 @@ function handleNavGo(i: number) {
     <header class="topbar">
       <div class="topbar-left">
         <button class="nav-toggle" @click="openNav" aria-label="Question navigator">☰</button>
-        <span class="exam-title">ISTQB CTFL v4.0</span>
+        <span class="exam-title">
+          {{ store.examMode.type === 'official' ? `Official Exam ${store.examMode.set}` : 'ISTQB CTFL v4.0' }}
+        </span>
         <span class="progress-pill">{{ store.answeredCount }}/{{ store.totalQ }} answered</span>
         <span v-if="store.flaggedCount" class="flag-pill">{{ store.flaggedCount }} flagged</span>
       </div>

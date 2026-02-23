@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
-import type { ActiveQuestion, ExamSession, ExamResult, ChapterResult } from '@/types'
+import type { ActiveQuestion, ExamSession, ExamResult, ChapterResult, ExamMode } from '@/types'
 
 // Chapter weights matching ISTQB v4.0 syllabus
 const CHAPTER_QUOTA: Record<number, number> = {
@@ -17,6 +17,7 @@ export const useExamStore = defineStore('exam', () => {
   const error        = ref<string | null>(null)
   const result       = ref<ExamResult | null>(null)
   const timerSecs    = ref(3600)
+  const examMode     = ref<ExamMode>({ type: 'random' })
   let   timerHandle: ReturnType<typeof setInterval> | null = null
 
   // Getters
@@ -27,38 +28,48 @@ export const useExamStore = defineStore('exam', () => {
   const progress     = computed(() => Math.round((answeredCount.value / totalQ.value) * 100))
 
   // ── Start exam ────────────────────────────────────────────────────────
-  async function startExam() {
-    loading.value = true
-    error.value   = null
+  async function startExam(mode: ExamMode = { type: 'random' }) {
+    loading.value  = true
+    error.value    = null
+    examMode.value = mode
 
     try {
-      // 1. Pick questions proportionally per chapter
-      const picked: ActiveQuestion[] = []
+      let shuffled: ActiveQuestion[]
 
-      for (const [chStr, quota] of Object.entries(CHAPTER_QUOTA)) {
-        const chapter = Number(chStr)
+      if (mode.type === 'official') {
+        // Official exam: fixed order from exam_set, all 40 questions
         const { data, error: qErr } = await supabase
           .from('questions')
           .select('*')
-          .eq('chapter', chapter)
+          .eq('exam_set', mode.set)
+          .order('exam_position', { ascending: true })
 
         if (qErr) throw qErr
-        if (!data || data.length === 0) throw new Error(`No questions found for chapter ${chapter}`)
+        if (!data || data.length === 0) throw new Error(`No questions found for Official Exam ${mode.set}`)
 
-        // Shuffle and pick quota
-        const shuffled = [...data].sort(() => Math.random() - 0.5)
-        const selected = shuffled.slice(0, Math.min(quota, shuffled.length))
-        picked.push(...selected.map(q => ({
-          ...q,
-          position: 0,
-          selected_answer: null,
-          flagged: false,
-        })))
+        shuffled = data.map((q, i) => ({ ...q, position: i + 1, selected_answer: null, flagged: false }))
+      } else {
+        // Random exam: proportional chapter quota, shuffled
+        const picked: ActiveQuestion[] = []
+
+        for (const [chStr, quota] of Object.entries(CHAPTER_QUOTA)) {
+          const chapter = Number(chStr)
+          const { data, error: qErr } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('chapter', chapter)
+            .is('exam_set', null)
+
+          if (qErr) throw qErr
+          if (!data || data.length === 0) throw new Error(`No questions found for chapter ${chapter}`)
+
+          const selected = [...data].sort(() => Math.random() - 0.5).slice(0, Math.min(quota, data.length))
+          picked.push(...selected.map(q => ({ ...q, position: 0, selected_answer: null, flagged: false })))
+        }
+
+        shuffled = picked.sort(() => Math.random() - 0.5)
+        shuffled.forEach((q, i) => { q.position = i + 1 })
       }
-
-      // 2. Shuffle final order and assign positions
-      const shuffled = picked.sort(() => Math.random() - 0.5)
-      shuffled.forEach((q, i) => { q.position = i + 1 })
 
       // 3. Create session in Supabase
       const { data: sess, error: sErr } = await supabase
@@ -122,15 +133,25 @@ export const useExamStore = defineStore('exam', () => {
   function prev() { goTo(currentIndex.value - 1) }
 
   // ── Answer & flag ─────────────────────────────────────────────────────
-  async function selectAnswer(answer: 'A' | 'B' | 'C' | 'D') {
+  async function selectAnswer(key: string) {
     const q = questions.value[currentIndex.value]
     if (!q || !session.value) return
-    q.selected_answer = answer
+
+    const isMulti = q.answer.includes(',')
+    if (isMulti) {
+      const curr = q.selected_answer ? q.selected_answer.split(',') : []
+      const idx  = curr.indexOf(key)
+      if (idx >= 0) curr.splice(idx, 1)
+      else curr.push(key)
+      q.selected_answer = curr.length > 0 ? curr.sort().join(',') : null
+    } else {
+      q.selected_answer = key
+    }
 
     // Persist to Supabase
     await supabase
       .from('exam_answers')
-      .update({ selected_answer: answer, answered_at: new Date().toISOString() })
+      .update({ selected_answer: q.selected_answer, answered_at: new Date().toISOString() })
       .eq('session_id', session.value.id)
       .eq('question_id', q.id)
   }
@@ -138,6 +159,12 @@ export const useExamStore = defineStore('exam', () => {
   function toggleFlag() {
     const q = questions.value[currentIndex.value]
     if (q) q.flagged = !q.flagged
+  }
+
+  // ── Scoring helper ────────────────────────────────────────────────────
+  function checkCorrect(q: ActiveQuestion): boolean {
+    if (!q.selected_answer) return false
+    return q.answer.split(',').sort().join(',') === q.selected_answer.split(',').sort().join(',')
   }
 
   // ── Submit ────────────────────────────────────────────────────────────
@@ -154,7 +181,7 @@ export const useExamStore = defineStore('exam', () => {
       // Score calculation
       let correct = 0
       const updates = questions.value.map(q => {
-        const isCorrect = q.selected_answer === q.answer
+        const isCorrect = checkCorrect(q)
         if (isCorrect) correct++
         return {
           session_id:      session.value!.id,
@@ -185,7 +212,7 @@ export const useExamStore = defineStore('exam', () => {
           chapterMap[q.chapter] = { title: q.chapter_title, total: 0, correct: 0 }
         }
         chapterMap[q.chapter].total++
-        if (q.selected_answer === q.answer) chapterMap[q.chapter].correct++
+        if (checkCorrect(q)) chapterMap[q.chapter].correct++
       }
 
       const chapterResults: ChapterResult[] = Object.entries(chapterMap).map(([ch, v]) => ({
@@ -221,10 +248,11 @@ export const useExamStore = defineStore('exam', () => {
     result.value       = null
     error.value        = null
     timerSecs.value    = 3600
+    examMode.value     = { type: 'random' }
   }
 
   return {
-    session, questions, currentIndex, loading, error, result, timerSecs,
+    session, questions, currentIndex, loading, error, result, timerSecs, examMode,
     current, totalQ, answeredCount, flaggedCount, progress,
     startExam, goTo, next, prev, selectAnswer, toggleFlag, submitExam, reset,
   }

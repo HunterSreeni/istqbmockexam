@@ -5,13 +5,21 @@ import { useExamStore } from '@/stores/exam'
 
 const router = useRouter()
 const store  = useExamStore()
-const starting = ref(false)
+const starting    = ref(false)
+const officialSet = ref<'A' | 'B' | 'C' | 'D' | null>(null)
 
 async function begin() {
   starting.value = true
-  await store.startExam()
+  await store.startExam({ type: 'random' })
   if (!store.error) router.push('/exam')
   else starting.value = false
+}
+
+async function beginOfficial(set: 'A' | 'B' | 'C' | 'D') {
+  officialSet.value = set
+  await store.startExam({ type: 'official', set })
+  if (!store.error) router.push('/exam')
+  else officialSet.value = null
 }
 
 const chapters = [
@@ -181,6 +189,31 @@ const certLevels = [
         This platform currently covers <strong>CTFL v4.0</strong> (Foundation Level).
         Advanced and Specialist mock exams are planned for future phases.
       </p>
+    </div>
+
+    <!-- Official Sample Exams -->
+    <div class="official-section">
+      <h2>Official Sample Exams</h2>
+      <p class="official-sub">
+        Fixed-order questions sourced from the official ISTQB CTFL v4.0 sample exam PDFs.
+        Same 40-question, 60-minute, 65% pass format as the real exam.
+      </p>
+      <div class="official-grid">
+        <button
+          v-for="set in (['A', 'B', 'C', 'D'] as const)"
+          :key="set"
+          class="official-card"
+          :disabled="officialSet !== null || starting"
+          @click="beginOfficial(set)"
+        >
+          <span class="official-badge">ISTQB</span>
+          <span class="official-title">Official Exam {{ set }}</span>
+          <span class="official-meta">40 questions · 60 min · 65% pass</span>
+          <span v-if="officialSet === set" class="official-loading">Loading…</span>
+          <span v-else class="official-cta">Start →</span>
+        </button>
+      </div>
+      <p v-if="store.error" class="error-msg">{{ store.error }}</p>
     </div>
 
     <!-- Footer -->
@@ -412,6 +445,80 @@ h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; color: var(--tex
 }
 .pathway-note strong { color: var(--accent); }
 
+/* ── Official Sample Exams ──────────────────────────────────────────────────── */
+.official-section { margin-bottom: 3rem; }
+
+.official-sub {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+  line-height: 1.65;
+}
+
+.official-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.official-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  cursor: pointer;
+}
+.official-card:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  transform: translateY(-1px);
+}
+.official-card:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.official-badge {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(79,142,247,0.2);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.official-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.official-meta {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.official-cta {
+  font-size: 0.78rem;
+  color: var(--accent);
+  margin-top: 0.2rem;
+}
+
+.official-loading {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 0.2rem;
+}
+
 /* ── Footer ─────────────────────────────────────────────────────────────────── */
 .footer {
   text-align: center;
@@ -439,5 +546,6 @@ h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; color: var(--tex
   .stat-divider { height: 22px; }
   .btn-start { padding: 0.85rem 2rem; width: 100%; }
   .level-grid { grid-template-columns: 1fr; }
+  .official-grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>

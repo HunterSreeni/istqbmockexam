@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ActiveQuestion } from '@/types'
 
 const props = defineProps<{
@@ -8,13 +9,16 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  answer: [a: 'A' | 'B' | 'C' | 'D']
+  answer: [a: string]
   flag: []
   prev: []
   next: []
 }>()
 
-const optionKeys = ['A', 'B', 'C', 'D'] as const
+const isMulti      = computed(() => props.question.answer.includes(','))
+const optionKeys   = computed(() => ['A', 'B', 'C', 'D', ...(props.question.options.E ? ['E'] : [])])
+const selectedKeys = computed(() => props.question.selected_answer?.split(',') ?? [])
+const isSelected   = (key: string) => selectedKeys.value.includes(key)
 </script>
 
 <template>
@@ -39,16 +43,19 @@ const optionKeys = ['A', 'B', 'C', 'D'] as const
     <!-- Question text -->
     <div class="q-text">{{ question.question }}</div>
 
+    <!-- Multi-answer banner -->
+    <div v-if="isMulti" class="multi-banner">Select TWO answers</div>
+
     <!-- Options -->
     <div class="options">
       <button
         v-for="key in optionKeys"
         :key="key"
-        :class="['option', { selected: question.selected_answer === key }]"
+        :class="['option', { selected: isSelected(key) }]"
         @click="emit('answer', key)"
       >
         <span class="opt-key">{{ key }}</span>
-        <span class="opt-text">{{ question.options[key] }}</span>
+        <span class="opt-text">{{ question.options[key as keyof typeof question.options] }}</span>
       </button>
     </div>
 
@@ -118,8 +125,23 @@ const optionKeys = ['A', 'B', 'C', 'D'] as const
 .q-text {
   font-size: 1rem;
   line-height: 1.75;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1rem;
   color: var(--text);
+}
+
+.multi-banner {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--yellow);
+  background: var(--yellow-dim);
+  border: 1px solid rgba(251,191,36,0.25);
+  border-radius: 100px;
+  padding: 0.2rem 0.7rem;
+  margin-bottom: 1.1rem;
 }
 
 .options { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 2rem; }

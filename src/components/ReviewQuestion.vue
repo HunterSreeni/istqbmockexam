@@ -1,19 +1,34 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ActiveQuestion } from '@/types'
 
-defineProps<{
+const props = defineProps<{
   question: ActiveQuestion
   index: number
   total: number
 }>()
 
 const emit = defineEmits<{ close: []; prev: []; next: [] }>()
-const optionKeys = ['A', 'B', 'C', 'D'] as const
 
-function optionClass(q: ActiveQuestion, key: typeof optionKeys[number]) {
-  if (key === q.answer)           return 'correct'
-  if (key === q.selected_answer)  return 'wrong'
+const optionKeys = computed(() =>
+  ['A', 'B', 'C', 'D', ...(props.question.options.E ? ['E'] : [])]
+)
+
+function optionClass(q: ActiveQuestion, key: string) {
+  const correct  = q.answer.split(',')
+  const selected = q.selected_answer?.split(',') ?? []
+  if (correct.includes(key))                              return 'correct'
+  if (selected.includes(key) && !correct.includes(key))  return 'wrong'
   return ''
+}
+
+function isCorrectKey(q: ActiveQuestion, key: string) {
+  return q.answer.split(',').includes(key)
+}
+
+function isWrongKey(q: ActiveQuestion, key: string) {
+  const selected = q.selected_answer?.split(',') ?? []
+  return selected.includes(key) && !q.answer.split(',').includes(key)
 }
 </script>
 
@@ -39,9 +54,9 @@ function optionClass(q: ActiveQuestion, key: typeof optionKeys[number]) {
             :class="['option', optionClass(question, key)]"
           >
             <span class="opt-key">{{ key }}</span>
-            <span class="opt-text">{{ question.options[key] }}</span>
-            <span v-if="key === question.answer" class="opt-badge correct-badge">Correct</span>
-            <span v-else-if="key === question.selected_answer" class="opt-badge wrong-badge">Your answer</span>
+            <span class="opt-text">{{ question.options[key as keyof typeof question.options] }}</span>
+            <span v-if="isCorrectKey(question, key)" class="opt-badge correct-badge">Correct</span>
+            <span v-else-if="isWrongKey(question, key)" class="opt-badge wrong-badge">Your answer</span>
           </div>
         </div>
 

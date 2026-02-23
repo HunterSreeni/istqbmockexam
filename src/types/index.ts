@@ -6,10 +6,16 @@ export interface Question {
   topic: string
   bloom: 'K1' | 'K2' | 'K3'
   question: string
-  options: { A: string; B: string; C: string; D: string }
-  answer: 'A' | 'B' | 'C' | 'D'
+  options: { A: string; B: string; C: string; D: string; E?: string }
+  answer: string
   explanation: string
+  exam_set?: string | null
+  exam_position?: number | null
 }
+
+export type ExamMode =
+  | { type: 'random' }
+  | { type: 'official'; set: 'A' | 'B' | 'C' | 'D' }
 
 export interface ExamSession {
   id: string
@@ -25,7 +31,7 @@ export interface ExamSession {
 export interface ExamAnswer {
   session_id: string
   question_id: number
-  selected_answer: 'A' | 'B' | 'C' | 'D' | null
+  selected_answer: string | null
   is_correct: boolean | null
   answered_at: string | null
 }
@@ -39,7 +45,7 @@ export interface SessionQuestion {
 // Used in the exam store — question enriched with the user's answer
 export interface ActiveQuestion extends Question {
   position: number
-  selected_answer: 'A' | 'B' | 'C' | 'D' | null
+  selected_answer: string | null
   flagged: boolean
 }
 
