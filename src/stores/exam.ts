@@ -49,21 +49,26 @@ export const useExamStore = defineStore('exam', () => {
 
         shuffled = data.map((q, i) => ({ ...q, position: i + 1, selected_answer: null, flagged: false }))
       } else {
-        // Random exam: proportional chapter quota, shuffled
-        const picked: ActiveQuestion[] = []
+        // Random exam: single query, then sample per chapter in JS
+        const { data, error: qErr } = await supabase
+          .from('questions')
+          .select('*')
+          .is('exam_set', null)
 
+        if (qErr) throw qErr
+        if (!data || data.length === 0) throw new Error('No questions found')
+
+        const byChapter: Record<number, typeof data> = {}
+        for (const q of data) {
+          if (!byChapter[q.chapter]) byChapter[q.chapter] = []
+          byChapter[q.chapter].push(q)
+        }
+
+        const picked: ActiveQuestion[] = []
         for (const [chStr, quota] of Object.entries(CHAPTER_QUOTA)) {
           const chapter = Number(chStr)
-          const { data, error: qErr } = await supabase
-            .from('questions')
-            .select('*')
-            .eq('chapter', chapter)
-            .is('exam_set', null)
-
-          if (qErr) throw qErr
-          if (!data || data.length === 0) throw new Error(`No questions found for chapter ${chapter}`)
-
-          const selected = [...data].sort(() => Math.random() - 0.5).slice(0, Math.min(quota, data.length))
+          const pool = byChapter[chapter] ?? []
+          const selected = [...pool].sort(() => Math.random() - 0.5).slice(0, Math.min(quota, pool.length))
           picked.push(...selected.map(q => ({ ...q, position: 0, selected_answer: null, flagged: false })))
         }
 
