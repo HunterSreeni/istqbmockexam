@@ -5,6 +5,7 @@ import App from './App.vue'
 import HomeView from './views/HomeView.vue'
 import ExamView from './views/ExamView.vue'
 import ResultsView from './views/ResultsView.vue'
+import StudyView from './views/StudyView.vue'
 import './style.css'
 
 const router = createRouter({
@@ -13,6 +14,7 @@ const router = createRouter({
     { path: '/',        name: 'home',    component: HomeView },
     { path: '/exam',    name: 'exam',    component: ExamView },
     { path: '/results', name: 'results', component: ResultsView },
+    { path: '/study',   name: 'study',   component: StudyView },
   ],
 })
 
