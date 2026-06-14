@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useExamStore } from '@/stores/exam'
+import { flashcards } from '@/data/flashcards'
 
 const router = useRouter()
 const store  = useExamStore()
@@ -138,6 +139,33 @@ const certLevels = [
             </div>
           </div>
           <span class="ch-pct">{{ ch.pct }}%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Study Mode -->
+    <div class="study-section">
+      <div class="study-header-row">
+        <div>
+          <h2>Study Mode</h2>
+          <p class="study-sub">Prepare with flashcards before attempting the exam. Covers all 6 chapters of the CTFL v4.0 syllabus.</p>
+        </div>
+        <span class="study-count">{{ flashcards.length }} cards</span>
+      </div>
+      <div class="study-grid">
+        <div class="study-card-preview">
+          <span class="study-badge">Flip cards</span>
+          <p class="study-title">Key Terms & Concepts</p>
+          <p class="study-desc">Definitions, principles, techniques, and terminology across all chapters.</p>
+          <div class="study-chips">
+            <span class="chip chip-1">Ch1 Fundamentals</span>
+            <span class="chip chip-2">Ch2 SDLC</span>
+            <span class="chip chip-3">Ch3 Static</span>
+            <span class="chip chip-4">Ch4 Design</span>
+            <span class="chip chip-5">Ch5 Management</span>
+            <span class="chip chip-6">Ch6 Tools</span>
+          </div>
+          <button class="btn-study" @click="router.push('/study')">Study now →</button>
         </div>
       </div>
     </div>
@@ -325,6 +353,105 @@ h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; color: var(--tex
 .ch-bar-bg { height: 3px; background: var(--border); border-radius: 2px; }
 .ch-bar-fill { height: 3px; background: var(--accent); border-radius: 2px; transition: width 0.6s ease; }
 .ch-pct { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim); width: 36px; text-align: right; flex-shrink: 0; }
+
+/* ── Study Mode ─────────────────────────────────────────────────────────────── */
+.study-section { margin-bottom: 3rem; }
+
+.study-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.study-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+  line-height: 1.6;
+  max-width: 480px;
+}
+
+.study-count {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(79,142,247,0.2);
+  padding: 0.2rem 0.65rem;
+  border-radius: 100px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.study-card-preview {
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--green);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1.4rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.study-badge {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+  background: var(--green-dim);
+  border: 1px solid rgba(52,211,153,0.25);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.study-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.study-desc {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.study-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  background: var(--surface-2);
+}
+
+.btn-study {
+  align-self: flex-start;
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid rgba(52,211,153,0.3);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.65rem 1.5rem;
+  border-radius: var(--radius);
+  transition: background 0.2s, transform 0.15s;
+  margin-top: 0.25rem;
+}
+.btn-study:hover { background: rgba(52,211,153,0.22); transform: translateY(-1px); }
 
 /* ── Rules ──────────────────────────────────────────────────────────────────── */
 .rules ul { list-style: none; display: flex; flex-direction: column; gap: 0.55rem; }
