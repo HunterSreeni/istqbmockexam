@@ -1,5 +1,5 @@
 export interface Question {
-  id: number
+  id: string
   chapter: number
   chapter_title: string
   syllabus_section: string
@@ -30,7 +30,7 @@ export interface ExamSession {
 
 export interface ExamAnswer {
   session_id: string
-  question_id: number
+  question_id: string
   selected_answer: string | null
   is_correct: boolean | null
   answered_at: string | null
@@ -38,7 +38,7 @@ export interface ExamAnswer {
 
 export interface SessionQuestion {
   session_id: string
-  question_id: number
+  question_id: string
   position: number
 }
 

@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/local-db.test.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.1",
     "pinia": "^2.3.1",
     "vue": "^3.4.0",
     "vue-router": "^4.5.0"

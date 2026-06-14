@@ -1,11 +1,23 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { supabase } from '@/lib/supabase'
-import type { ActiveQuestion, ExamSession, ExamResult, ChapterResult, ExamMode } from '@/types'
+import {
+  completeExamSession,
+  createExamSession,
+  getOfficialQuestions,
+  getRandomQuestionPool,
+  saveExamAnswers,
+  saveSessionQuestions,
+  updateExamAnswer,
+} from '@/lib/localDb'
+import type { ActiveQuestion, ExamResult, ChapterResult, ExamMode, ExamSession } from '@/types'
 
 // Chapter weights matching ISTQB v4.0 syllabus
 const CHAPTER_QUOTA: Record<number, number> = {
   1: 10, 2: 7, 3: 4, 4: 8, 5: 7, 6: 4,
+}
+
+function shuffle<T>(items: T[]): T[] {
+  return [...items].sort(() => Math.random() - 0.5)
 }
 
 export const useExamStore = defineStore('exam', () => {
@@ -34,29 +46,16 @@ export const useExamStore = defineStore('exam', () => {
     examMode.value = mode
 
     try {
-      let shuffled: ActiveQuestion[]
+      let picked: ActiveQuestion[]
 
       if (mode.type === 'official') {
-        // Official exam: fixed order from exam_set, all 40 questions
-        const { data, error: qErr } = await supabase
-          .from('questions')
-          .select('*')
-          .eq('exam_set', mode.set)
-          .order('exam_position', { ascending: true })
+        const data = getOfficialQuestions(mode.set)
+        if (data.length === 0) throw new Error(`No questions found for Official Exam ${mode.set}`)
 
-        if (qErr) throw qErr
-        if (!data || data.length === 0) throw new Error(`No questions found for Official Exam ${mode.set}`)
-
-        shuffled = data.map((q, i) => ({ ...q, position: i + 1, selected_answer: null, flagged: false }))
+        picked = data.map((q, i) => ({ ...q, position: i + 1, selected_answer: null, flagged: false }))
       } else {
-        // Random exam: single query, then sample per chapter in JS
-        const { data, error: qErr } = await supabase
-          .from('questions')
-          .select('*')
-          .is('exam_set', null)
-
-        if (qErr) throw qErr
-        if (!data || data.length === 0) throw new Error('No questions found')
+        const data = getRandomQuestionPool()
+        if (data.length === 0) throw new Error('No questions found')
 
         const byChapter: Record<number, typeof data> = {}
         for (const q of data) {
@@ -64,49 +63,36 @@ export const useExamStore = defineStore('exam', () => {
           byChapter[q.chapter].push(q)
         }
 
-        const picked: ActiveQuestion[] = []
+        picked = []
         for (const [chStr, quota] of Object.entries(CHAPTER_QUOTA)) {
           const chapter = Number(chStr)
           const pool = byChapter[chapter] ?? []
-          const selected = [...pool].sort(() => Math.random() - 0.5).slice(0, Math.min(quota, pool.length))
+          const selected = shuffle(pool).slice(0, Math.min(quota, pool.length))
           picked.push(...selected.map(q => ({ ...q, position: 0, selected_answer: null, flagged: false })))
         }
 
-        shuffled = picked.sort(() => Math.random() - 0.5)
-        shuffled.forEach((q, i) => { q.position = i + 1 })
+        picked = shuffle(picked)
+        picked.forEach((q, i) => { q.position = i + 1 })
       }
 
-      // 3. Create session in Supabase
-      const { data: sess, error: sErr } = await supabase
-        .from('exam_sessions')
-        .insert({ total_questions: shuffled.length })
-        .select()
-        .single()
+      const newSession = createExamSession(picked.length)
 
-      if (sErr) throw sErr
-
-      // 4. Insert session_questions
-      const sqRows = shuffled.map(q => ({
-        session_id:  sess.id,
+      saveSessionQuestions(picked.map(q => ({
+        session_id:  newSession.id,
         question_id: q.id,
         position:    q.position,
-      }))
-      const { error: sqErr } = await supabase.from('session_questions').insert(sqRows)
-      if (sqErr) throw sqErr
+      })))
 
-      // 5. Pre-insert blank answer rows (makes upsert easier later)
-      const ansRows = shuffled.map(q => ({
-        session_id:      sess.id,
+      saveExamAnswers(picked.map(q => ({
+        session_id:      newSession.id,
         question_id:     q.id,
         selected_answer: null,
         is_correct:      null,
         answered_at:     null,
-      }))
-      const { error: aErr } = await supabase.from('exam_answers').insert(ansRows)
-      if (aErr) throw aErr
+      })))
 
-      session.value   = sess
-      questions.value = shuffled
+      session.value   = newSession
+      questions.value = picked
       currentIndex.value = 0
       timerSecs.value = 3600
 
@@ -153,12 +139,13 @@ export const useExamStore = defineStore('exam', () => {
       q.selected_answer = key
     }
 
-    // Persist to Supabase
-    await supabase
-      .from('exam_answers')
-      .update({ selected_answer: q.selected_answer, answered_at: new Date().toISOString() })
-      .eq('session_id', session.value.id)
-      .eq('question_id', q.id)
+    updateExamAnswer({
+      session_id:      session.value.id,
+      question_id:     q.id,
+      selected_answer: q.selected_answer,
+      is_correct:      null,
+      answered_at:     new Date().toISOString(),
+    })
   }
 
   function toggleFlag() {
@@ -173,7 +160,7 @@ export const useExamStore = defineStore('exam', () => {
   }
 
   // ── Submit ────────────────────────────────────────────────────────────
-  async function submitExam(timedOut = false) {
+  async function submitExam(_timedOut = false) {
     if (!session.value) return
     stopTimer()
     loading.value = true
@@ -183,7 +170,6 @@ export const useExamStore = defineStore('exam', () => {
       const startedAt   = new Date(session.value.started_at)
       const timeTaken   = Math.round((Date.now() - startedAt.getTime()) / 1000)
 
-      // Score calculation
       let correct = 0
       const updates = questions.value.map(q => {
         const isCorrect = checkCorrect(q)
@@ -197,20 +183,15 @@ export const useExamStore = defineStore('exam', () => {
         }
       })
 
-      // Upsert all answers at once
-      await supabase.from('exam_answers').upsert(updates, {
-        onConflict: 'session_id,question_id',
-      })
+      saveExamAnswers(updates)
 
-      // Update session
-      const { data: updatedSess } = await supabase
-        .from('exam_sessions')
-        .update({ status: timedOut ? 'completed' : 'completed', score: correct, completed_at: completedAt })
-        .eq('id', session.value.id)
-        .select()
-        .single()
+      const updatedSess = completeExamSession(session.value.id, correct, completedAt) ?? {
+        ...session.value,
+        completed_at: completedAt,
+        score: correct,
+        status: 'completed' as const,
+      }
 
-      // Chapter breakdown
       const chapterMap: Record<number, { title: string; total: number; correct: number }> = {}
       for (const q of questions.value) {
         if (!chapterMap[q.chapter]) {
@@ -229,7 +210,7 @@ export const useExamStore = defineStore('exam', () => {
       })).sort((a, b) => a.chapter - b.chapter)
 
       result.value = {
-        session:          updatedSess ?? session.value,
+        session:          updatedSess,
         score:            correct,
         total:            questions.value.length,
         passed:           correct >= (session.value.pass_score ?? 26),
